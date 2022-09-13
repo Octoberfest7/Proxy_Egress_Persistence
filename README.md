@@ -20,7 +20,7 @@ Regardless of how we eventually end up egressing through the proxy, being that c
 
 CobaltStrike (as well as most major C2's) support a variety of different protocols for C2 communications, SMB being a popular choice for intra-network communications between devices. It is far preferable to have one (or maybe two for redundancy) actual network egress points, with other compromised machines communicating out to the C2 infrastructure via intranet SMB connections to the egress host(s).  Computer role also becomes a consideration here; user workstations regularly initiate connections to the internet, domain controllers and file servers do not.
 
-A simple way around the issue we face is rather than spawning an HTTPS beacon as SYSTEM, we can spawn an SMB one.  This will not provide remote access to the compromised host, but it will give us a way to continue to execute code as SYSTEM by linking the spawned SMB beacon to the HTTPS beacon we end up spawning. 
+A simple way around the issue we face is rather than spawning an HTTPS beacon as SYSTEM, we can spawn an SMB one.  This will not provide remote access to the compromised host, but it will give us a way to continue to execute code as SYSTEM by linking the spawned SMB beacon to the HTTPS beacon we end up spawning. Critically, because this SYSTEM integrity beacon will reside in session 0 (a bit more on sessions later), this SMB beacon will persist across user sessions; as long as the computer remains powered on, this SYSTEM SMB beacon will be present and accessible
 
 ## HTTPS Egress Beacons
 
@@ -38,5 +38,14 @@ This major setback led me to do a lot of research into windows authentication an
 
 ## A Path Foward
 
-With what I would have considered the cleanest solution (user-level process in session 0) off the table, I had to consider how 
+With what I would have considered the cleanest solution (a user-level process in session 0) off the table, we now have to consider how to most effectively sustain access to the compromised host when it is going to require a user be logged in. The product is going to need to spawn both a SYSTEM SMB beacon as well as a user-context HTTPS one; in addition, what happens if the user logs out and then logs back in? How will our tool continually identity new logon sessions and spawn new HTTPS beacons to ensure remote access to the SYSTEM SMB beacon that persists across logon sessions on the computer? Additionally, measures need to be taken to ensure that our tool does not spawn additional unnecessary HTTPS or SMB beacons.
+
+The final tool/payload format I landed on was an executable that contains both HTTPS and SMB stageless CobaltStrike shellcode, the necessary functions to spawn a new process and inject said shellcode into it, as well as control functions to A. Identify new user logon sessions and spawn an HTTPS beacon on this event, B. Continually check for the presence of a SYSTEM SMB beacon and spawn a new one if one is not located, and C. Eliminate the possibility of spawning a duplicate beacon for the same user logon session or a duplicate SYSTEM SMB beacon.
+
+As of publication I only created the above tool in a .exe format, but it could certainly be ported to a DLL or service exe, opening the door to DLL hijacking and/or sideloading attack vectors. A pseudo-code rendition of the payload format can be seen below:
+
+<img width="601" alt="image" src="https://user-images.githubusercontent.com/91164728/189980144-79c4a05e-0af9-4e0e-9f83-72e09d8ca04d.png">
+
+For simplicity this executable can be set to run as a scheduled task as SYSTEM on machine startup;  after inital AV evasion measures and a few setup functions, it enters an endless loop in which it alternates between checking for the existence of a SYSTEM SMB beacon as well as user sessions and a corresponding HTTPS beacon, and sleeping for a specified period of time.  This cycle continues as long as the machine is turned on, continually monitoring for new user logins (as determined by the presence of explorer.exe processes) and spawning a new HTTPS beacon using a token stolen from that user's explorer.exe process in order to utilize that individuals network credentials and HKCU settings in order to navigate the web proxy server.  When a user logs off, the HTTPS beacon will die, however as soon as they log back in or an entirely different user logs into the machine (in the case of a shared machine in a public space), a new HTTPS beacon will spawn and restore our access to the SYSTEM SMB beacon from which we can do a lot more.
+
 
