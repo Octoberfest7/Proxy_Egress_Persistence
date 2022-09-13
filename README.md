@@ -48,4 +48,6 @@ As of publication I only created the above tool in a .exe format, but it could c
 
 For simplicity this executable can be set to run as a scheduled task as SYSTEM on machine startup;  after inital AV evasion measures and a few setup functions, it enters an endless loop in which it alternates between checking for the existence of a SYSTEM SMB beacon as well as user sessions and a corresponding HTTPS beacon, and sleeping for a specified period of time.  This cycle continues as long as the machine is turned on, continually monitoring for new user logins (as determined by the presence of explorer.exe processes) and spawning a new HTTPS beacon using a token stolen from that user's explorer.exe process in order to utilize that individuals network credentials and HKCU settings in order to navigate the web proxy server.  When a user logs off, the HTTPS beacon will die, however as soon as they log back in or an entirely different user logs into the machine (in the case of a shared machine in a public space), a new HTTPS beacon will spawn and restore our access to the SYSTEM SMB beacon from which we can do a lot more.
 
+<img width="1291" alt="image" src="https://user-images.githubusercontent.com/91164728/189998494-93bc71a3-c11f-4568-98d8-1ea8585da8e4.png">
+
 
